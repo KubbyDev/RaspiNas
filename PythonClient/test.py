@@ -5,13 +5,13 @@ import time
 
 ip = "192.168.1.42"                         # IP of the FTP server
 password = open("password", "r").read()     # Password to access the FTP server
-bufferSize = 32                             # Length of the TCP buffers
+bufferSize = 128                            # Length of the TCP buffers
 timeout = 2                                 # Timeout of the TCP connections
 
 # Global variables -------------------------------------------------------------
 
 command = socket.socket()
-data = socket.socket()
+data = None
 receivedData = b''
 
 # Tools ------------------------------------------------------------------------
@@ -30,8 +30,12 @@ def receive_data():
     while len(buf) == bufferSize:
         buf = data.recv(bufferSize)
         received += buf
-    print(received.decode("ascii"))
+    print(received.decode("charmap"))
     print("Data reception end")
+    return received
+
+def send_data(binarydata):
+    data.send(binarydata)       
 
 def receive_line():
     global receivedData
@@ -57,6 +61,7 @@ def send_request(request):
 
 # Code -------------------------------------------------------------------------
 
+"""
 # Establishes the command connection
 command.connect((ip, 21))
 
@@ -65,15 +70,37 @@ receive_line()
 send_request("AUTH SSL")
 send_request("USER pi")
 send_request("PASS " + password)
+send_request("TYPE I")
+
+# Establishes a data connection
 pasvResp = send_request("PASV")
 dataPort = decode_pasv(pasvResp)
-
-# Establishes the data connection
 print("Connecting data channel at port " + str(dataPort))
+data = socket.socket()
 data.connect((ip, dataPort))
 
 # Asks for a file
-send_request("RETR test")
+send_request("CWD storage")
+send_request("RETR angry.jpg")
 
 # Receives the file
-receive_data()
+datafile = receive_data()
+open("test.jpg", "wb+").write(datafile)
+receive_line()
+data.close()
+
+# Establishes a data connection
+pasvResp = send_request("PASV")
+dataPort = decode_pasv(pasvResp)
+print("Connecting data channel at port " + str(dataPort))
+data = socket.socket()
+data.connect((ip, dataPort))
+
+# Asks for a file upload
+send_request("STOR test2.png")
+
+# Sends the file
+filedata = open("test2.png", "rb").read()
+send_data(filedata)
+data.close()
+"""
