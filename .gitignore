@@ -1,2 +1,5 @@
 PythonClient/password
 PythonClient/client.log
+TestLocalDir/
+
+__pycache__/
