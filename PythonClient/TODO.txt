@@ -1,7 +1,0 @@
-Error handling:
- - On connect (server not found)
- 
-Auto find the raspi IP:
- - Find a way to authenticate the Raspi
- 
-stop sending password (ftp accessible on local network)

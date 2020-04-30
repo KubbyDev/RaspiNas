@@ -1,18 +1,21 @@
 import socket
 import time
+import os
+from logfile import log
 
 # Config -----------------------------------------------------------------------
 
 __commandBufferSize = 64    # Length of the command TCP buffer
 __dataBufferSize = 1024     # Length of the data TCP buffer
 __timeout = 0.1             # Time before considering the message is over
+__storageDir = "/storage"   # Main storage directory on the server
+__backupDir = "/backup"     # Backup directory on the server
 
 # Global variables -------------------------------------------------------------
 
 __socket = socket.socket() # Socket of the command TCP connection
 __socket.settimeout(__timeout)
 __serverIP = "" # Set by connect()
-logFile = None # Initialised by main.py
 
 # Tools ------------------------------------------------------------------------
 
@@ -20,24 +23,23 @@ logFile = None # Initialised by main.py
 def __receive():
     global __socket
     global __commandBufferSize
-    global logFile
     received = b''
     buf = b'a'
     while buf != b'':
-        try: buf = __socket.recv(__commandBufferSize)
+        # Tries to receive data
+        try:
+            buf = __socket.recv(__commandBufferSize)
+            received += buf
         except: buf = b''
-        received += buf
-    logFile.write("<< " + received.decode("ascii"))
+    log(received.decode("ascii"), "<< ")
     return received
 
 # Sends a request and returns the response
 def __send_request(request):
     global __socket
-    global logFile
     global __timeout
     __socket.send(bytes(request, "ascii") + b"\r\n")
-    logFile.write(">> " + request + "\r\n")
-    time.sleep(__timeout*2)
+    log(request, ">> ")
     return __receive()
 
 # Decodes the pasv command response and returns the port
@@ -49,17 +51,16 @@ def __decode_pasv(resp):
 
 # Extracts the file name from a path
 def __extract_name(path):
-    return path[path.rfind('/')+1:]
+    return path[path.rfind(os.path.sep)+1:]
 
 # Establishes a data connection with the server and returns (socket, port)
 def __connect_data_channel():
     global __serverIP
-    global logFile
     global __timeout
     # Establishes a data connection
     pasvResp = __send_request("PASV")
     dataPort = __decode_pasv(pasvResp)
-    logFile.write("I: Connecting data channel at port " + str(dataPort) + "...\r\n")
+    log("Connecting data channel at port " + str(dataPort) + "...")
     dataSocket = socket.socket()
     dataSocket.connect((__serverIP, dataPort))
     dataSocket.settimeout(__timeout)
@@ -67,21 +68,20 @@ def __connect_data_channel():
 
 # Closes a data connection
 def __close_data_channel(socket):
-    port = str(socket.getsockname()[1])
+    port = str(socket.getpeername()[1])
     socket.close()
-    logFile.write("I: Closed data channel at port " + port + "\r\n")
+    log("Closed data channel at port " + port)
 
 # Receives data from a data channel
 def __receive_data(socket):
     global __dataBufferSize
-    global logFile
     received = b''
     buf = b'a'
     while buf != b'':
         try: buf = socket.recv(__dataBufferSize)
         except: buf = b''
         received += buf
-    logFile.write("I: Received " + str(len(received)) + " bytes\n")
+    log("Received " + str(len(received)) + " bytes")
     return received
 
 # Formats the raw response of LIST to (name, size) tuples
@@ -91,6 +91,14 @@ def __format_files_list(list):
         parts = file.split(None, 8)
         res.append((parts[8], int(parts[4])))
     return res
+
+# Goes to the given directory
+def __change_directory(dir):
+    __send_request("CWD " + dir)
+
+# Returns the current working directory
+def __get_working_directory():
+    return __send_request("PWD").decode("ascii").split('"')[1]
     
 # Code -------------------------------------------------------------------------
 
@@ -98,9 +106,9 @@ def __format_files_list(list):
 def connect(ip, user, password):
     global __socket
     global __serverIP
-    global logFile
+    global __storageDir
     # Connects the socket
-    logFile.write("I: Connecting to " + ip + " at port 21...\r\n")
+    log("Connecting to " + ip + " at port 21...")
     __socket.connect((ip, 21))
     __serverIP = ip
     # Sends the authentication messages
@@ -110,46 +118,41 @@ def connect(ip, user, password):
     __send_request("PASS " + password)
     # Sets the connection up
     __send_request("TYPE I")
-
-# Goes to the given directory
-def change_directory(dir):
-    __send_request("CWD " + dir)
-
-# Returns the current working directory
-def get_working_directory():
-    return __send_request("PWD").decode("ascii").split('"')[1]
+    __change_directory(__storageDir)
 
 # Sends a file to the server
 def send_file(path, destName=None):
-    global logFile
     if not destName: destName = __extract_name(path)
     # Establishes a data connection
     dataSocket, dataPort = __connect_data_channel()
     # Asks for a file upload
     __send_request("STOR " + destName)
-    # Sends the file
-    filedata = open(path, "rb").read()
-    logFile.write("I: Sending data from " + path + "...\r\n")
+    # Sends the file data
+    datafile = open(path, "rb")
+    filedata = datafile.read()
+    log("Sending data from " + path + "...")
     dataSocket.send(filedata)
-    __receive()
+    datafile.close()
     # Closes the data connection
     __close_data_channel(dataSocket)
+    __receive()
 
 # Downloads the file with given name to given path
 def fetch_file(name, destPath=None):
-    global logFile
     if not destPath: destPath = name
     # Establishes a data connection
     dataSocket, dataPort = __connect_data_channel()
     # Asks for a file download
     __send_request("RETR " + name)
     # Downloads the file
-    logFile.write("I: Receiving data from " + name + "...\r\n")
+    log("Receiving data from " + name + "...")
     filedata = __receive_data(dataSocket)
-    open(destPath, "wb+").write(filedata)
-    __receive()
+    datafile = open(destPath, "wb+")
+    datafile.write(filedata)
+    datafile.close()
     # Closes the data connection
     __close_data_channel(dataSocket)
+    __receive()
 
 # Returns a list of all the files in the current working directory
 # The list elements are tuples (name, size_bytes)
@@ -158,31 +161,37 @@ def list_files():
     dataSocket, dataPort = __connect_data_channel()
     # Asks for the files list
     __send_request("LIST")
-    logFile.write("I: Receiving list of files...\r\n")
+    log("Receiving list of files...")
     # Receives the list
     rawData = __receive_data(dataSocket).decode("ascii")
     files = __format_files_list(rawData)
-    logFile.write("I: Received " + str(len(files)) + " files\r\n")
+    log("Found " + str(len(files)) + " files")
     # Closes the data connection
     __close_data_channel(dataSocket)
     return files
 
+# Moves the target file to the backup folder
+def backup_file(name):
+    global __backupDir
+    global __storageDir
+    __send_request("RNFR " + __storageDir + "/" + name)
+    __send_request("RNTO " + __backupDir + "/" + name)
+
 # Disconnects from the server
 def disconnect():
     global __socket
-    global logFile
     __socket.close()
-    logFile.write("I: Disconnecting...\r\n\r\n")
+    log("Disconnecting...")
 
-"""
+    
+'''
 # TEST
-logFile = open("client.log", "w+", newline="\n")
+import logfile
+logfile.start()
 connect("192.168.1.44", "pi", open("password", "r").read())
-#print(get_working_directory())
-change_directory("storage")
-#print(list_files())
-#print(get_working_directory())
-#send_file("test2.png")
-#fetch_file("angry.jpg")
+#list_files()
+#send_file("..\\TestLocalDir\\angry choke.png")
+#backup_file("angry table flip.jpg")
+#fetch_file("angry table flip.jpg")
 disconnect()
-"""
+'''

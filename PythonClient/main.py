@@ -1,11 +1,11 @@
 import server
 import localdir
+import logfile
+from logfile import log
 from os.path import join
 
 # Config -----------------------------------------------------------------------
 
-memesDir = "memes"
-backupDir = "backup"
 configFile = "client.conf"
 
 # Global variables -------------------------------------------------------------
@@ -19,7 +19,6 @@ config = {
     "log_file":"client.log",
     "local_dir":"",
 }
-logFile = None
 
 # Tools ------------------------------------------------------------------------
 
@@ -37,17 +36,15 @@ def readConfig():
 
 def contents(file):
     f = open(file, "r")
-    password = f.read()
+    contents = f.read()
     f.close()
-    return password
+    return contents
 
 # Code -------------------------------------------------------------------------
 
 # Reads and apply the config file
 readConfig()
-logFile = open(config['log_file'], "w+", newline="\n")
-server.logFile = logFile
-localdir.logFile = logFile
+logfile.start(config['log_file'])
 
 # Connects to the server
 ip = config['server_ip']
@@ -58,19 +55,28 @@ server.connect(ip, username, password)
 
 # Gets the list of files on the server folder and in the local folder
 localfiles = localdir.get_all_files(config['local_dir'])
-server.change_directory(memesDir)
 serverfiles = server.list_files()
+
+# If a file have the same name on the client and the server but with different
+# size, backups the file on the server and uploads the client's version
+for lName, lSize in localfiles:
+    for sName, sSize in serverfiles:
+        if lName == sName and lSize != sSize:
+            log("Backing up " + sName + "...")
+            server.backup_file(sName)
+            serverfiles.remove((sName, sSize))
 
 # Downloads every file that is on the server but not in the local folder
 for file in serverfiles:
     if not file in localfiles:
+        log("Downloading " + file[0] + "...")
         server.fetch_file(file[0], join(config['local_dir'], file[0]))
 
 # Uploads everyfile that is in the local folder but not on the server
 for file in localfiles:
     if not file in serverfiles:
+        log("Uploading " + file[0] + "...")
         server.send_file(join(config['local_dir'], file[0]))
 
 # Exits
 server.disconnect()
-logFile.close()
