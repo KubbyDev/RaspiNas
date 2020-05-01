@@ -2,13 +2,17 @@ import server
 import localdir
 import logfile
 from logfile import log
-from os.path import join
+from os.path import join, isfile
+import sys
+
+# This script synchronises the local directory and the server
+# Execute it with no argument and it will use the client.conf config file
+# in the working directory. The first argument is given is the config file
 
 # Config -----------------------------------------------------------------------
 
 configFile = "client.conf"
-
-# Global variables -------------------------------------------------------------
+if(len(sys.argv) > 0): configFile = sys.argv[1]
 
 # This holds the default config. Overwritten by the contents of the config file
 config = {
@@ -17,7 +21,7 @@ config = {
     "password":"", # Has priority on passwordFile if given
     "password_file":"password",
     "log_file":"client.log",
-    "local_dir":"",
+    "local_dir":".",
 }
 
 # Tools ------------------------------------------------------------------------
@@ -26,9 +30,18 @@ config = {
 def readConfig():
     global config
     global configFile
+    # Verifies that the file exists
+    if not isfile(configFile):
+        print("WARNING: Could not find the config file here " + configFile)
+        print("Using default config values")
+        return
     f = open(configFile, "r")
     lines = f.read().splitlines()
+    # For each line of the file
     for line in lines:
+        # Removes the comments
+        if '#' in line: line = line[:line.find('#')]
+        # If the line contains an =, processes it
         index = line.find('=')
         if index == -1: continue
         config[line[:index]] = line[index+1:]
@@ -63,6 +76,7 @@ for lName, lSize in localfiles:
     for sName, sSize in serverfiles:
         if lName == sName and lSize != sSize:
             log("Backing up " + sName + "...")
+            print("Backing up " + sName + "...")
             server.backup_file(sName)
             serverfiles.remove((sName, sSize))
 
@@ -70,13 +84,16 @@ for lName, lSize in localfiles:
 for file in serverfiles:
     if not file in localfiles:
         log("Downloading " + file[0] + "...")
+        print("Downloading " + file[0] + "...")
         server.fetch_file(file[0], join(config['local_dir'], file[0]))
 
 # Uploads everyfile that is in the local folder but not on the server
 for file in localfiles:
     if not file in serverfiles:
         log("Uploading " + file[0] + "...")
+        print("Uploading " + file[0] + "...")
         server.send_file(join(config['local_dir'], file[0]))
 
 # Exits
 server.disconnect()
+print("Server and local dir are now synchronised!")

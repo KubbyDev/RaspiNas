@@ -99,7 +99,7 @@ def __change_directory(dir):
 # Returns the current working directory
 def __get_working_directory():
     return __send_request("PWD").decode("ascii").split('"')[1]
-    
+
 # Code -------------------------------------------------------------------------
 
 # Connects and authenticates to the server
@@ -122,6 +122,7 @@ def connect(ip, user, password):
 
 # Sends a file to the server
 def send_file(path, destName=None):
+    global __timeout
     if not destName: destName = __extract_name(path)
     # Establishes a data connection
     dataSocket, dataPort = __connect_data_channel()
@@ -135,10 +136,12 @@ def send_file(path, destName=None):
     datafile.close()
     # Closes the data connection
     __close_data_channel(dataSocket)
+    time.sleep(__timeout*2)
     __receive()
 
 # Downloads the file with given name to given path
 def fetch_file(name, destPath=None):
+    global __timeout
     if not destPath: destPath = name
     # Establishes a data connection
     dataSocket, dataPort = __connect_data_channel()
@@ -152,6 +155,7 @@ def fetch_file(name, destPath=None):
     datafile.close()
     # Closes the data connection
     __close_data_channel(dataSocket)
+    time.sleep(__timeout*2)
     __receive()
 
 # Returns a list of all the files in the current working directory
@@ -183,7 +187,7 @@ def disconnect():
     __socket.close()
     log("Disconnecting...")
 
-    
+
 '''
 # TEST
 import logfile
