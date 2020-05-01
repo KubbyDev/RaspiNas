@@ -1,6 +1,6 @@
 PythonClient/password
 PythonClient/client.log
-PythonClient/client_linux.log
+PythonClient/client_linux.conf
 PythonClient/client.conf
 
 __pycache__/
