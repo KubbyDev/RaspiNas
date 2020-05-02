@@ -21,7 +21,7 @@ config = {
     "password":"", # Has priority on passwordFile if given
     "password_file":"password",
     "log_file":"client.log",
-    "local_dir":".",
+    "local_dir":"LocalDir",
 }
 
 # Tools ------------------------------------------------------------------------
