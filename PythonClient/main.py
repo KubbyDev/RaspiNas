@@ -12,7 +12,7 @@ import sys
 # Config -----------------------------------------------------------------------
 
 configFile = "client.conf"
-if(len(sys.argv) > 0): configFile = sys.argv[1]
+if(len(sys.argv) > 1): configFile = sys.argv[1]
 
 # This holds the default config. Overwritten by the contents of the config file
 config = {
