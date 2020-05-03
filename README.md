@@ -19,15 +19,11 @@ Also don't forget to put the right path for run.bat
 
 ### On UNIX:
 ```
-sudo -- sh -c 'echo "* 1 * * * root cd /media/kubby/Data/GitHub/RaspiNas/PythonClient && python3 main.py" >> /etc/crontab'
+sudo -- sh -c 'echo "0 * * * * root cd /media/kubby/Data/GitHub/RaspiNas/PythonClient && python3 main.py" >> /etc/crontab'
 ```
-Don't forget to replace /media/kubby..... by the right path on your machine
+Don't forget to replace /media/kubby/Data/GitHub/RaspiNas/PythonClient by the right path on your machine
 
 ### On android:
 ```
 
 ```
-
-## TODO:
-
-Encrypt password
