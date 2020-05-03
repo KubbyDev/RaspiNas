@@ -107,6 +107,8 @@ def connect(ip, user, password):
     global __socket
     global __serverIP
     global __storageDir
+    # Finds the ip address
+    ip = socket.gethostbyname(ip)
     # Connects the socket
     log("Connecting to " + ip + " at port 21...")
     __socket.connect((ip, 21))

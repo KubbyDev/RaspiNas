@@ -16,8 +16,8 @@ if(len(sys.argv) > 1): configFile = sys.argv[1]
 
 # This holds the default config. Overwritten by the contents of the config file
 config = {
-    "server_ip":"192.168.1.44",
-    "username":"pi",
+    "server_ip":"raspberrypi.local",
+    "username":"raspinas",
     "password":"", # Has priority on passwordFile if given
     "password_file":"password",
     "log_file":"client.log",
