@@ -2,6 +2,8 @@ PythonClient/password
 PythonClient/client.log
 PythonClient/client_linux.conf
 PythonClient/client.conf
+AndroidWrapper/app/src/main/python/client.conf
+AndroidWrapper/app/src/main/python/password
 
 __pycache__/
 
@@ -43,3 +45,4 @@ AndroidWrapper/**/lint/generated/
 AndroidWrapper/**/lint/outputs/
 AndroidWrapper/**/lint/tmp/
 AndroidWrapper/**/lint/reports/
+
