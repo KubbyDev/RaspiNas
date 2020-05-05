@@ -12,12 +12,13 @@ from os.path import join, isfile
 
 # This holds the default config. Overwritten by the contents of the config file
 config = {
-    "server_ip":"raspberrypi.local",
-    "username":"raspinas",
-    "password":"", # Has priority on passwordFile if given
-    "password_file":"password",
-    "log_file":"client.log",
-    "local_dir":"LocalDir",
+    "server_ip":"raspberrypi.local", # FTP server ip
+    "username":"raspinas",           # FTP user name
+    "password":"",                   # FTP user password. Has priority on passwordFile if given
+    "password_file":"password",      # File containing the FTP user password. The password field has priority if given
+    "log_file":"client.log",         # Logs file
+    "local_dir":"LocalDir",          # Local location or the synchronised directory
+    "socket_timeout":"0.1",          # Timeout of the socket (higher = less failures, lower = faster)
 }
 
 # Tools ------------------------------------------------------------------------
@@ -62,7 +63,7 @@ def main(configFile):
     username = config['username']
     password = config['password']
     if not password: password = contents(config['password_file'])
-    server.connect(ip, username, password)
+    server.connect(ip, username, password, float(config['socket_timeout']))
 
     # Gets the list of files on the server folder and in the local folder
     localfiles = localdir.get_all_files(config['local_dir'])

@@ -2,7 +2,7 @@ import server
 import localdir
 import logfile
 from logfile import log
-from os.path import join, isfile, dirname
+from os.path import join, isfile
 
 # This script synchronises the local directory and the server
 # Execute it with no argument and it will use the client.conf config file
@@ -12,18 +12,19 @@ from os.path import join, isfile, dirname
 
 # This holds the default config. Overwritten by the contents of the config file
 config = {
-    "server_ip":"192.168.1.47",
-    "username":"raspinas",
-    "password":"", # Has priority on passwordFile if given
-    "password_file":"password",
-    "log_file":"client.log",
-    "local_dir":"LocalDir",
+    "server_ip":"raspberrypi.local", # FTP server ip
+    "username":"raspinas",           # FTP user name
+    "password":"",                   # FTP user password. Has priority on passwordFile if given
+    "password_file":"password",      # File containing the FTP user password. The password field has priority if given
+    "log_file":"client.log",         # Logs file
+    "local_dir":"LocalDir",          # Local location or the synchronised directory
+    "socket_timeout":"0.1",          # Timeout of the socket (higher = less failures, lower = faster)
 }
 
 # Tools ------------------------------------------------------------------------
 
 # Reads the config file and extracts the values
-def readConfig(file):
+def read_config(file):
     global config
     # Verifies that the file exists
     if not isfile(file):
@@ -44,9 +45,9 @@ def readConfig(file):
 
 def contents(file):
     f = open(file, "r")
-    contents = f.read()
+    data = f.read()
     f.close()
-    return contents
+    return data
 
 # Code -------------------------------------------------------------------------
 
@@ -54,7 +55,7 @@ def main(configFile):
     global config
     
     # Reads and apply the config file
-    readConfig(configFile)
+    read_config(configFile)
     logfile.start(config['log_file'])
 
     # Connects to the server
@@ -62,7 +63,7 @@ def main(configFile):
     username = config['username']
     password = config['password']
     if not password: password = contents(config['password_file'])
-    server.connect(ip, username, password)
+    server.connect(ip, username, password, float(config['socket_timeout']))
 
     # Gets the list of files on the server folder and in the local folder
     localfiles = localdir.get_all_files(config['local_dir'])

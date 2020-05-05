@@ -4,6 +4,7 @@ apply plugin: 'com.chaquo.python'
 android {
     compileSdkVersion 29
     buildToolsVersion "29.0.0"
+    ndkVersion "21.1.6352462"
     defaultConfig {
         applicationId "com.example.androidwrapper"
         minSdkVersion 16

@@ -7,13 +7,13 @@ from logfile import log
 
 __commandBufferSize = 64    # Length of the command TCP buffer
 __dataBufferSize = 1024     # Length of the data TCP buffer
-__timeout = 0.1             # Time before considering the message is over
 __storageDir = "/storage"   # Main storage directory on the server
 __backupDir = "/backup"     # Backup directory on the server
+__timeout = 0.1             # Time before considering the message is over
 
 # Global variables -------------------------------------------------------------
 
-__socket = None
+__socket = None # Socket of the command TCP connection
 __serverIP = "" # Set by connect()
 
 # Tools ------------------------------------------------------------------------
@@ -102,16 +102,19 @@ def __get_working_directory():
 # Code -------------------------------------------------------------------------
 
 # Connects and authenticates to the server
-def connect(ip, user, password):
+def connect(host, user, password, timeout=None):
     global __socket
     global __serverIP
     global __storageDir
-    __socket = socket.socket() # Socket of the command TCP connection
-    __socket.settimeout(__timeout)
+    global __timeout
     # Finds the ip address
-    ip = socket.gethostbyname(ip)
+    log("Finding ip of host " + host + "...")
+    ip = socket.gethostbyname(host)
     # Connects the socket
     log("Connecting to " + ip + " at port 21...")
+    __socket = socket.socket()
+    if timeout: __timeout = timeout
+    __socket.settimeout(__timeout)
     __socket.connect((ip, 21))
     __serverIP = ip
     # Sends the authentication messages
@@ -188,6 +191,7 @@ def backup_file(name):
 def disconnect():
     global __socket
     __socket.close()
+    __socket = None
     log("Disconnecting...")
 
 
