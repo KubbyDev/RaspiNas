@@ -13,19 +13,10 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
 import android.util.Log;
-import android.widget.TextView;
-import android.widget.Toast;
 
 import com.chaquo.python.PyObject;
 import com.chaquo.python.Python;
 import com.chaquo.python.android.AndroidPlatform;
-
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.net.Socket;
-import java.net.UnknownHostException;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -74,14 +65,15 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void test() {
-
         new Thread() {
             @Override
             public void run() {
-
+                // Gets an external pictures directory
+                String dir = getExternalFilesDir(Environment.DIRECTORY_PICTURES).toString();
+                Log.d("DIRECTORY: ", dir);
+                // Launches the python client with that directory as local directory
                 PyObject script = Python.getInstance().getModule("main");
-                PyObject res = script.callAttr("launch");
-
+                PyObject res = script.callAttr("launch", dir);
             }
         }.start();
     }

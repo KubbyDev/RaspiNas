@@ -16,7 +16,6 @@ android {
             abiFilters "armeabi-v7a", "x86"
         }
         python {
-            buildPython "C:\\Program Files\\Python38\\python.exe"
             buildPython "py -3.8.2"
         }
     }
