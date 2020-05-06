@@ -3,6 +3,8 @@ PythonClient/client.log
 PythonClient/client_linux.conf
 PythonClient/client.conf
 AndroidWrapper/app/src/main/python/password
+AndroidWrapper/app/src/main/python/*.py
+!AndroidWrapper/app/src/main/python/main.py
 
 __pycache__/
 

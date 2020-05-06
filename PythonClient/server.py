@@ -109,13 +109,19 @@ def connect(host, user, password, timeout=None):
     global __timeout
     # Finds the ip address
     log("Finding ip of host " + host + "...")
-    ip = socket.gethostbyname(host)
+    try: ip = socket.gethostbyname(host)
+    except:
+        log("Could not resolve host " + host, "E: ")
+        raise Exception("Could not resolve host " + host)
     # Connects the socket
     log("Connecting to " + ip + " at port 21...")
     __socket = socket.socket()
     if timeout: __timeout = timeout
     __socket.settimeout(__timeout)
-    __socket.connect((ip, 21))
+    try: __socket.connect((ip, 21))
+    except:
+        log("Could not connect to " + ip, "E: ")
+        raise Exception("Could not connect to " + ip)
     __serverIP = ip
     # Sends the authentication messages
     __receive()
