@@ -2,7 +2,8 @@ from os.path import dirname
 import os
 import sync
 
-def changeLocalDir(localDir):
+# Adds or replaces the given property with the new value
+def changeProperty(property, newValue):
     # Reads the current config file if it exists
     try:
         f = open("client.conf", "r")
@@ -10,27 +11,25 @@ def changeLocalDir(localDir):
         f.close()
     except:
         content = ""
-    # Splits the file in lines and updates the lines that define local_dir
-    found = False
-    lines = content.splitlines()
-    for i in range(len(lines)):
-        if lines[i].startswith("local_dir="):
-            lines[i] = "local_dir=" + localDir
-            found = True
-    # If the local_dir was not defined, adds it
-    if not found:
-        lines.append("local_dir=" + localDir)
+    # Creates the new file content and adds all the lines except the ones that define the property
+    res = []
+    for line in content.splitlines():
+        if not line.startswith(property + "="):
+            res.append(line)
+    # Adds the wanted property
+    res.append(property + "=" + newValue)
     # Writes the lines back to the config file
     f = open("client.conf", "w+")
-    for line in lines:
+    for line in res:
         f.write(line+"\r\n")
     f.close()
 
-def launch(localDir):
+def launch(localDir, logsDir):
     # Sets the working directory to the python scripts directory
     os.chdir(dirname(__file__))
-    # Sets the local directory in the config file
-    changeLocalDir(localDir)
+    # Sets the local directory and the logs file in the config file
+    changeProperty("local_dir", localDir)
+    changeProperty("log_file", logsDir+"/logs.txt")
     # Launches the main program
     sync.main("client.conf")
 
