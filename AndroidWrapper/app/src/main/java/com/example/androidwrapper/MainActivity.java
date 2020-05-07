@@ -1,15 +1,11 @@
 package com.example.androidwrapper;
 
-import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.annotation.SuppressLint;
 import android.content.ContentResolver;
 import android.content.ContentValues;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
@@ -20,10 +16,18 @@ import com.chaquo.python.Python;
 import com.chaquo.python.android.AndroidPlatform;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 
 public class MainActivity extends AppCompatActivity {
+
+    private String getMime(String filename) {
+        String ext = filename.substring(filename.lastIndexOf('.')+1);
+        if(ext.equalsIgnoreCase("mp4")) return "video/mp4";
+        if(ext.equalsIgnoreCase("jpg")) return "image/jpeg";
+        return "image/" + ext.toLowerCase();
+    }
 
     @SuppressLint("WrongThread") // Could be useful to do it on worker thread one day, but for now fuck it
     @Override
@@ -58,17 +62,21 @@ public class MainActivity extends AppCompatActivity {
 
             // Inserts a database entry with name and mime type
             final ContentValues  contentValues = new ContentValues();
+            String mime = getMime(image.getName());
             contentValues.put(MediaStore.MediaColumns.DISPLAY_NAME, image.getName());
-            contentValues.put(MediaStore.MediaColumns.MIME_TYPE,
-                    "image/"+image.getName().substring(image.getName().lastIndexOf('.')+1));
-            Uri uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues);
+            contentValues.put(MediaStore.MediaColumns.MIME_TYPE, mime);
+            Uri folder = MediaStore.Images.Media.EXTERNAL_CONTENT_URI;
+            if(mime.startsWith("video")) folder = MediaStore.Video.Media.EXTERNAL_CONTENT_URI;
+            Uri uri = resolver.insert(folder, contentValues);
 
             // Adds the image itself
-            try {
-                Bitmap bitmap = BitmapFactory.decodeFile(image.getAbsolutePath());
-                OutputStream stream = resolver.openOutputStream(uri);
-                if(bitmap != null) bitmap.compress(Bitmap.CompressFormat.JPEG, 95, stream);
-                stream.close();
+            try (FileInputStream fis = new FileInputStream(image.getAbsolutePath())) {
+                try (OutputStream os = resolver.openOutputStream(uri)) {
+                    byte[] buf = new byte[1024];
+                    int len;
+                    while ((len = fis.read(buf)) > 0)
+                        os.write(buf, 0, len);
+                }
             } catch (IOException e) { e.printStackTrace(); }
         }
 
