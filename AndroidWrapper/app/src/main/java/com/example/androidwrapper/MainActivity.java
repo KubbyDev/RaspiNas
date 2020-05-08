@@ -55,6 +55,7 @@ public class MainActivity extends AppCompatActivity {
         // Removes all the images in the galery
         final ContentResolver resolver = this.getContentResolver();
         resolver.delete(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, null, null);
+        resolver.delete(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, null, null);
 
         // Copies the images from the python local_dir to the galery
         for(File image : localDir.listFiles()) {

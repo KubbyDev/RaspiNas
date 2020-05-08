@@ -1,3 +1,4 @@
 
 This task (every day at 3 a.m) changes the color space of all images to RGB to avoid problems in Android:
-sudo -- sh -c 'echo "0 3 * * * root for f in *.(png|jpg|jpeg|PNG|JPG|JPEG); do convert \$f -colorspace RGB \$f; done" >> /etc/crontab'
+sudo -- sh -c 'echo "0 3 * * * root /home/raspinas/nas/repair_images.sh" >> /etc/crontab'
+Don't forget to replace the path by the path of the storage folder of your FTP server
