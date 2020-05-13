@@ -1,10 +1,15 @@
 package com.example.androidwrapper;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 
+import android.Manifest;
 import android.annotation.SuppressLint;
 import android.content.ContentResolver;
 import android.content.ContentValues;
+import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
@@ -22,12 +27,9 @@ import java.io.OutputStream;
 
 public class MainActivity extends AppCompatActivity {
 
-    private String getMime(String filename) {
-        String ext = filename.substring(filename.lastIndexOf('.')+1);
-        if(ext.equalsIgnoreCase("mp4")) return "video/mp4";
-        if(ext.equalsIgnoreCase("jpg")) return "image/jpeg";
-        return "image/" + ext.toLowerCase();
-    }
+    private static final int STORAGE_PERMISSION_CODE = 101;
+    private File localDir = null;
+    private boolean syncDone = false;
 
     @SuppressLint("WrongThread") // Could be useful to do it on worker thread one day, but for now fuck it
     @Override
@@ -36,12 +38,66 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        syncDone = false;
+        // Starts the synchronisation on another thread
+        new Thread() {
+            @Override
+            public void run() {
+                synchronise();
+                syncDone = true;
+            }
+        }.start();
+
+        // Checks if the write permission is given
+        if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                == PackageManager.PERMISSION_DENIED) {
+
+            // If it is not given, requests it
+            ActivityCompat.requestPermissions(MainActivity.this,
+                    new String[] { Manifest.permission.WRITE_EXTERNAL_STORAGE },
+                    STORAGE_PERMISSION_CODE);
+        }
+        else {
+            // If it is given, wait for the synchronisation to finish and updates the gallery
+            waitForSync();
+            updateGallery();
+            // Closes the app
+            finish();
+            System.exit(0);
+        }
+    }
+
+    // When the write permission is given
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+
+        if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            // Wait for the synchronisation to finish and updates the gallery
+            waitForSync();
+            updateGallery();
+        }
+
+        // Closes the app
+        finish();
+        System.exit(0);
+    }
+
+    // BLOCKING: waits for the synchronisation to finish
+    private void waitForSync() {
+        while(!syncDone)
+            try { Thread.sleep(500); } catch (InterruptedException e) { e.printStackTrace(); }
+    }
+
+    // Synchronises the local folder with the server (calls the python client)
+    private void synchronise() {
+
         // Starts a python instance
         if (!Python.isStarted())
             Python.start(new AndroidPlatform(this));
 
         // Gets an external pictures directory
-        File localDir = getExternalFilesDir(Environment.DIRECTORY_PICTURES);
+        localDir = getExternalFilesDir(Environment.DIRECTORY_PICTURES);
         if(localDir == null) return;
 
         // Gets the directory for the logs file
@@ -51,6 +107,10 @@ public class MainActivity extends AppCompatActivity {
         // Launches the python client with that directory as local directory
         PyObject script = Python.getInstance().getModule("main");
         script.callAttr("launch", localDir.toString(), logsDir.toString());
+    }
+
+    // Copies the files in the local folder to the gallery
+    private void updateGallery() {
 
         // Removes all the images in the galery
         final ContentResolver resolver = this.getContentResolver();
@@ -62,27 +122,29 @@ public class MainActivity extends AppCompatActivity {
             Log.d("GALLERY: ", "Adding " + image + " to the gallery");
 
             // Inserts a database entry with name and mime type
-            final ContentValues  contentValues = new ContentValues();
+            final ContentValues contentValues = new ContentValues();
             String mime = getMime(image.getName());
             contentValues.put(MediaStore.MediaColumns.DISPLAY_NAME, image.getName());
             contentValues.put(MediaStore.MediaColumns.MIME_TYPE, mime);
             Uri folder = MediaStore.Images.Media.EXTERNAL_CONTENT_URI;
-            if(mime.startsWith("video")) folder = MediaStore.Video.Media.EXTERNAL_CONTENT_URI;
+            if (mime.startsWith("video")) folder = MediaStore.Video.Media.EXTERNAL_CONTENT_URI;
             Uri uri = resolver.insert(folder, contentValues);
 
             // Adds the image itself
-            try (FileInputStream fis = new FileInputStream(image.getAbsolutePath())) {
-                try (OutputStream os = resolver.openOutputStream(uri)) {
-                    byte[] buf = new byte[1024];
-                    int len;
-                    while ((len = fis.read(buf)) > 0)
-                        os.write(buf, 0, len);
-                }
+            try (FileInputStream fis = new FileInputStream(image.getAbsolutePath());
+                 OutputStream os = resolver.openOutputStream(uri)) {
+                byte[] buf = new byte[1024];
+                int len;
+                while ((len = fis.read(buf)) > 0)
+                    os.write(buf, 0, len);
             } catch (IOException e) { e.printStackTrace(); }
         }
+    }
 
-        // Closes the app
-        finish();
-        System.exit(0);
+    private String getMime(String filename) {
+        String ext = filename.substring(filename.lastIndexOf('.')+1);
+        if(ext.equalsIgnoreCase("mp4")) return "video/mp4";
+        if(ext.equalsIgnoreCase("jpg")) return "image/jpeg";
+        return "image/" + ext.toLowerCase();
     }
 }

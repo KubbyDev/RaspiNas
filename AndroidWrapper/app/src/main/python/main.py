@@ -1,3 +1,6 @@
+# Wrapper that calls the python program
+# Don't forget to run AndroidWrapper\update_sources.bat to fetch the python program
+
 from os.path import dirname
 import os
 import sync
@@ -32,5 +35,3 @@ def launch(localDir, logsDir):
     changeProperty("log_file", logsDir+"/logs.txt")
     # Launches the main program
     sync.main("client.conf")
-
-# default working directory is /data/user/0/com.example.androidwrapper/files/chaquopy/AssetFinder/app

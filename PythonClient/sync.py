@@ -19,6 +19,7 @@ config = {
     "log_file":"client.log",         # Logs file
     "local_dir":"LocalDir",          # Local location or the synchronised directory
     "socket_timeout":"0.1",          # Timeout of the socket (higher = less failures, lower = faster)
+    "max_retries":"5"                # Max number of retries when a download fails
 }
 
 # Tools ------------------------------------------------------------------------
@@ -43,12 +44,6 @@ def read_config(file):
         config[line[:index]] = line[index+1:]
     f.close()
 
-def contents(file):
-    f = open(file, "r")
-    data = f.read()
-    f.close()
-    return data
-
 # Code -------------------------------------------------------------------------
 
 def main(configFile):
@@ -59,11 +54,8 @@ def main(configFile):
     logfile.start(config['log_file'])
 
     # Connects to the server
-    ip = config['server_ip']
-    username = config['username']
-    password = config['password']
-    if not password: password = contents(config['password_file'])
-    server.connect(ip, username, password, float(config['socket_timeout']))
+    server.configure(config)
+    server.connect()
 
     # Gets the list of files on the server folder and in the local folder
     localfiles = localdir.get_all_files(config['local_dir'])
@@ -84,7 +76,8 @@ def main(configFile):
         if not file in localfiles:
             log("Downloading " + file[0] + "...")
             print("Downloading " + file[0] + "...")
-            server.fetch_file(file[0], join(config['local_dir'], file[0]))
+            if not server.fetch_file(file[0], join(config['local_dir'], file[0])):
+                print("Download failed: max retries reached")
 
     # Uploads everyfile that is in the local folder but not on the server
     for file in localfiles:

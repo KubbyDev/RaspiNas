@@ -9,7 +9,13 @@ __commandBufferSize = 64    # Length of the command TCP buffer
 __dataBufferSize = 1024     # Length of the data TCP buffer
 __storageDir = "/storage"   # Main storage directory on the server
 __backupDir = "/backup"     # Backup directory on the server
-__timeout = 0.1             # Time before considering the message is over
+
+# Set by configure()
+__hostName = ""
+__username = ""
+__password = ""
+__timeout = 0.1
+__maxFetchRetries = 5
 
 # Global variables -------------------------------------------------------------
 
@@ -99,35 +105,79 @@ def __change_directory(dir):
 def __get_working_directory():
     return __send_request("PWD").decode("ascii").split('"')[1]
 
+# Extracts the file size from a connection openning message (after a RETR)
+def __extract_file_size(message):
+    begin = b" ("
+    end = b" bytes)"
+    sizestr = message[message.find(begin)+len(begin):message.find(end)]
+    return int(sizestr)
+
+# Downloads the file with given name and returns the raw binary data
+# as well as the expected size of this data (bytes) in a tuple
+def __fetch_file(name):
+    global __timeout
+    # Establishes a data connection
+    dataSocket, dataPort = __connect_data_channel()
+    # Asks for a file download
+    response = __send_request("RETR " + name)
+    expectedsize = __extract_file_size(response)
+    # Downloads the file
+    log("Receiving data from " + name + "...")
+    filedata = __receive_data(dataSocket)
+    # Closes the data connection
+    __close_data_channel(dataSocket)
+    time.sleep(__timeout*2)
+    __receive()
+    # Returns the data and the size sent by the server
+    return filedata, expectedsize
+
 # Code -------------------------------------------------------------------------
 
+# Configures some data on the server before connecting
+def configure(config):
+    global __hostName
+    global __timeout
+    global __username
+    global __password
+    global __maxFetchRetries
+    __hostName = config['server_ip']
+    __username = config['username']
+    __password = config['password']
+    __timeout = float(config['socket_timeout'])
+    __maxFetchRetries = int(config['max_retries'])
+    if __password == "":
+        file = open(config['password_file'])
+        __password = file.read()
+        file.close()
+        
 # Connects and authenticates to the server
-def connect(host, user, password, timeout=None):
+def connect():
     global __socket
     global __serverIP
-    global __storageDir
+    global __hostName
     global __timeout
+    global __username
+    global __password
+    global __storageDir
     # Finds the ip address
-    log("Finding ip of host " + host + "...")
-    try: ip = socket.gethostbyname(host)
+    log("Finding ip of host " + __hostName + "...")
+    try: __serverIP = socket.gethostbyname(__hostName)
     except:
-        log("Could not resolve host " + host, "E: ")
-        raise Exception("Could not resolve host " + host)
+        log("Could not resolve host " + __hostName, "E: ")
+        raise Exception("Could not resolve host " + __hostName)
     # Connects the socket
-    log("Connecting to " + ip + " at port 21...")
+    log("Connecting to " + __serverIP + " at port 21...")
     __socket = socket.socket()
-    if timeout: __timeout = timeout
     __socket.settimeout(__timeout)
-    try: __socket.connect((ip, 21))
+    try: __socket.connect((__serverIP, 21))
     except:
-        log("Could not connect to " + ip, "E: ")
-        raise Exception("Could not connect to " + ip)
-    __serverIP = ip
+        log("Could not connect to " + __serverIP, "E: ")
+        raise Exception("Could not connect to " + __serverIP)
     # Sends the authentication messages
     __receive()
     __send_request("AUTH SSL")
-    __send_request("USER " + user)
-    __send_request("PASS " + password)
+    __send_request("USER " + __username)
+    __send_request("PASS " + __password)
     # Sets the connection up
     __send_request("TYPE I")
     __change_directory(__storageDir)
@@ -152,23 +202,29 @@ def send_file(path, destName=None):
     __receive()
 
 # Downloads the file with given name to given path
+# Will retry if the download fails.
+# If the download fails too many time (maxTries), returns False
 def fetch_file(name, destPath=None):
-    global __timeout
+    global __maxFetchRetries
     if not destPath: destPath = name
-    # Establishes a data connection
-    dataSocket, dataPort = __connect_data_channel()
-    # Asks for a file download
-    __send_request("RETR " + name)
-    # Downloads the file
-    log("Receiving data from " + name + "...")
-    filedata = __receive_data(dataSocket)
-    datafile = open(destPath, "wb+")
-    datafile.write(filedata)
-    datafile.close()
-    # Closes the data connection
-    __close_data_channel(dataSocket)
-    time.sleep(__timeout*2)
-    __receive()
+    tries = 0
+    while tries < __maxFetchRetries:
+        if tries > 0: log("Retrying...")
+        # Downloads the file
+        data, expectedsize = __fetch_file(name)
+        actualsize = len(data)
+        # If the download succeeded, writes the file and exits
+        if actualsize == expectedsize:
+            file = open(destPath, "wb+")
+            file.write(data)
+            file.close()
+            return True
+        # If the download failed, logs it
+        log("Download failed, received " + str(actualsize) + " bytes instead of " + str(expectedsize), source="E: ")
+        tries += 1
+    # If the max number of retries is reached, gives up
+    log("Max retries reached, aborted the download")
+    return False
 
 # Returns a list of all the files in the current working directory
 # The list elements are tuples (name, size_bytes)
