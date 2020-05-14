@@ -6,13 +6,11 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
 import android.Manifest;
-import android.annotation.SuppressLint;
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.Environment;
 import android.provider.MediaStore;
 import android.util.Log;
 
@@ -28,10 +26,10 @@ import java.io.OutputStream;
 public class MainActivity extends AppCompatActivity {
 
     private static final int STORAGE_PERMISSION_CODE = 101;
+    private static final String NAME_PREFIX = "RaspiNas ";
     private File localDir = null;
     private boolean syncDone = false;
 
-    @SuppressLint("WrongThread") // Could be useful to do it on worker thread one day, but for now fuck it
     @Override
     protected void onCreate(Bundle savedInstanceState) {
 
@@ -97,7 +95,7 @@ public class MainActivity extends AppCompatActivity {
             Python.start(new AndroidPlatform(this));
 
         // Gets an external pictures directory
-        localDir = getExternalFilesDir(Environment.DIRECTORY_PICTURES);
+        localDir = getExternalFilesDir("LocalDirectory");
         if(localDir == null) return;
 
         // Gets the directory for the logs file
@@ -114,8 +112,10 @@ public class MainActivity extends AppCompatActivity {
 
         // Removes all the images in the galery
         final ContentResolver resolver = this.getContentResolver();
-        resolver.delete(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, null, null);
-        resolver.delete(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, null, null);
+        resolver.delete(MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                MediaStore.MediaColumns.DISPLAY_NAME + " LIKE ?", new String[] { NAME_PREFIX + "%" });
+        resolver.delete(MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+                MediaStore.MediaColumns.DISPLAY_NAME + " LIKE ?", new String[] { NAME_PREFIX + "%" });
 
         // Copies the images from the python local_dir to the galery
         for(File image : localDir.listFiles()) {
@@ -124,7 +124,8 @@ public class MainActivity extends AppCompatActivity {
             // Inserts a database entry with name and mime type
             final ContentValues contentValues = new ContentValues();
             String mime = getMime(image.getName());
-            contentValues.put(MediaStore.MediaColumns.DISPLAY_NAME, image.getName());
+            contentValues.put(MediaStore.MediaColumns.DISPLAY_NAME, NAME_PREFIX + image.getName());
+            contentValues.put(MediaStore.MediaColumns.TITLE, image.getName());
             contentValues.put(MediaStore.MediaColumns.MIME_TYPE, mime);
             Uri folder = MediaStore.Images.Media.EXTERNAL_CONTENT_URI;
             if (mime.startsWith("video")) folder = MediaStore.Video.Media.EXTERNAL_CONTENT_URI;
