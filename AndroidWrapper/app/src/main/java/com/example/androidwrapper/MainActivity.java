@@ -13,21 +13,26 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.provider.MediaStore;
 import android.util.Log;
+import android.widget.TextView;
 
 import com.chaquo.python.PyObject;
 import com.chaquo.python.Python;
 import com.chaquo.python.android.AndroidPlatform;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
 
 public class MainActivity extends AppCompatActivity {
 
     private static final int STORAGE_PERMISSION_CODE = 101;
     private static final String NAME_PREFIX = "RaspiNas ";
-    private File localDir = null;
+    private String localDir = null;
+    private String logsFile = null;
+    private TextView mainTextView = null;
     private boolean syncDone = false;
 
     @Override
@@ -35,6 +40,32 @@ public class MainActivity extends AppCompatActivity {
 
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        // Gets an external pictures directory
+        File locDir = getExternalFilesDir("LocalDirectory");
+        if (locDir == null) return;
+        localDir = locDir.getAbsolutePath();
+
+        // Gets the directory for the logs file
+        File logsDir = getExternalFilesDir(null);
+        if (logsDir == null) return;
+        logsFile = logsDir.getAbsolutePath() + "/logs.txt";
+
+        // Finds the main text view
+        mainTextView = findViewById(R.id.textView);
+
+        // Starts reading the logs on another thread
+        new Thread() {
+            @Override
+            public void run() {
+                while (true) {
+                    // TODO: Find a way to put it fullscreen
+                    String res = runCommand("tail -n 100 " + logsFile);
+                    mainTextView.setText(res);
+                    try { Thread.sleep(100); } catch (InterruptedException e) { e.printStackTrace(); }
+                }
+            }
+        }.start();
 
         syncDone = false;
         // Starts the synchronisation on another thread
@@ -46,23 +77,31 @@ public class MainActivity extends AppCompatActivity {
             }
         }.start();
 
-        // Checks if the write permission is given
-        if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
-                == PackageManager.PERMISSION_DENIED) {
+        // Lauches the rest of the app asynchronously because it seems like the onCreate function
+        // Needs to return for the textView to update properly
+        new Thread() {
+            @Override
+            public void run() {
 
-            // If it is not given, requests it
-            ActivityCompat.requestPermissions(MainActivity.this,
-                    new String[] { Manifest.permission.WRITE_EXTERNAL_STORAGE },
-                    STORAGE_PERMISSION_CODE);
-        }
-        else {
-            // If it is given, wait for the synchronisation to finish and updates the gallery
-            waitForSync();
-            updateGallery();
-            // Closes the app
-            finish();
-            System.exit(0);
-        }
+                // Checks if the write permission is given
+                if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                        == PackageManager.PERMISSION_DENIED) {
+
+                    // If it is not given, requests it
+                    ActivityCompat.requestPermissions(MainActivity.this,
+                            new String[] { Manifest.permission.WRITE_EXTERNAL_STORAGE },
+                            STORAGE_PERMISSION_CODE);
+                }
+                else {
+                    // If it is given, wait for the synchronisation to finish and updates the gallery
+                    waitForSync();
+                    updateGallery();
+                    // Closes the app
+                    finish();
+                    System.exit(0);
+                }
+            }
+        }.start();
     }
 
     // When the write permission is given
@@ -94,17 +133,9 @@ public class MainActivity extends AppCompatActivity {
         if (!Python.isStarted())
             Python.start(new AndroidPlatform(this));
 
-        // Gets an external pictures directory
-        localDir = getExternalFilesDir("LocalDirectory");
-        if(localDir == null) return;
-
-        // Gets the directory for the logs file
-        File logsDir = getExternalFilesDir(null);
-        if(logsDir == null) return;
-
         // Launches the python client with that directory as local directory
         PyObject script = Python.getInstance().getModule("main");
-        script.callAttr("launch", localDir.toString(), logsDir.toString());
+        script.callAttr("launch", localDir, logsFile);
     }
 
     // Copies the files in the local folder to the gallery
@@ -118,7 +149,7 @@ public class MainActivity extends AppCompatActivity {
                 MediaStore.MediaColumns.DISPLAY_NAME + " LIKE ?", new String[] { NAME_PREFIX + "%" });
 
         // Copies the images from the python local_dir to the galery
-        for(File image : localDir.listFiles()) {
+        for(File image : new File(localDir).listFiles()) {
             Log.d("GALLERY: ", "Adding " + image + " to the gallery");
 
             // Inserts a database entry with name and mime type
@@ -147,5 +178,19 @@ public class MainActivity extends AppCompatActivity {
         if(ext.equalsIgnoreCase("mp4")) return "video/mp4";
         if(ext.equalsIgnoreCase("jpg")) return "image/jpeg";
         return "image/" + ext.toLowerCase();
+    }
+
+    // https://stackoverflow.com/questions/23608005/execute-shell-commands-and-get-output-in-a-textview
+    public String runCommand(String cmd)
+    {
+        String o = "";
+        try {
+            Process p = Runtime.getRuntime().exec(cmd);
+            BufferedReader b = new BufferedReader(new InputStreamReader(p.getInputStream()));
+            String line;
+            while((line = b.readLine()) != null)
+                o += line + "\n";
+        } catch(Exception e) { o="error"; }
+        return o;
     }
 }

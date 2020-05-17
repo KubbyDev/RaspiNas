@@ -1,4 +1,3 @@
-import thread
 import threading
 import time
 import socket
@@ -15,7 +14,7 @@ __connection_timeout = 10    # Maximum time to connect the socket
 
 __continue_listening = False # Set this variable to false to stop the listening thread
 __callbacks = []             # Functions to call when a message is received from the server
-__callbacks.lock = threading.Lock()
+__cblock = threading.Lock()  # Thread lock object for the callbacks list
 __socket = None              # The socket used for the tcp connection
 
 # Tools ------------------------------------------------------------------------
@@ -23,15 +22,16 @@ __socket = None              # The socket used for the tcp connection
 # Processes incomming lines
 def __line_received(line):
     global __callbacks
+    global __cblock
     log(received, "<< ")
     # Locks the list of callbacks during the processing
-    __callbacks.lock.acquire()
+    __cblock.acquire()
     # Goes through the filters and triggers the actions for the filters that match
     for filter, action in __callbacks:
         if filter(line):
             action(line)
             __callbacks.remove((filter, action))
-    __callbacks.lock.release()
+    __cblock.release()
 
 # Listen to the incomming data and triggers __line_received when a line is received
 def __listen(socket):
@@ -70,7 +70,8 @@ def open(ip):
     __socket.settimeout(0.01)
     # Starts the listening thread
     __continue_listening = True
-    thread.start_new_thread(__listen, (socket,))
+    thread = threading.Thread(target=__listen, args=(socket,))
+    thread.start()
 
 # Close the command connection
 def close():
@@ -88,11 +89,12 @@ def close():
 # Warning: the callbacks are executed asynchronously, make sure nothing breaks
 def add_callback(action=None, filter=None):
     global __callbacks
+    global __cblock
     if not action: action = lambda line : None
     if not filter: filter = lambda line : True
-    __callbacks.lock.acquire()
+    __cblock.acquire()
     __callbacks.append((filter, action))
-    __callbacks.lock.release()
+    __cblock.release()
 
 # Sends a request and returns the response
 def send_request(request, filter=None, startsWith=None):

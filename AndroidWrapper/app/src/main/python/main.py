@@ -27,11 +27,11 @@ def changeProperty(property, newValue):
         f.write(line+"\r\n")
     f.close()
 
-def launch(localDir, logsDir):
+def launch(localDir, logsFile):
     # Sets the working directory to the python scripts directory
     os.chdir(dirname(__file__))
     # Sets the local directory and the logs file in the config file
     changeProperty("local_dir", localDir)
-    changeProperty("logs_file", logsDir+"/logs.txt")
+    changeProperty("logs_file", logsFile)
     # Launches the main program
     sync.main("client.conf")
