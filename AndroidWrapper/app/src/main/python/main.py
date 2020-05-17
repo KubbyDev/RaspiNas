@@ -32,6 +32,6 @@ def launch(localDir, logsDir):
     os.chdir(dirname(__file__))
     # Sets the local directory and the logs file in the config file
     changeProperty("local_dir", localDir)
-    changeProperty("log_file", logsDir+"/logs.txt")
+    changeProperty("logs_file", logsDir+"/logs.txt")
     # Launches the main program
     sync.main("client.conf")

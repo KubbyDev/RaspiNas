@@ -12,14 +12,12 @@ from os.path import join, isfile
 
 # This holds the default config. Overwritten by the contents of the config file
 config = {
-    "server_ip":"raspberrypi.local", # FTP server ip
-    "username":"raspinas",           # FTP user name
-    "password":"",                   # FTP user password. Has priority on passwordFile if given
-    "password_file":"password",      # File containing the FTP user password. The password field has priority if given
-    "log_file":"client.log",         # Logs file
-    "local_dir":"LocalDir",          # Local location or the synchronised directory
-    "socket_timeout":"0.1",          # Timeout of the socket (higher = less failures, lower = faster)
-    "max_retries":"5"                # Max number of retries when a download fails
+    "host":"raspberrypi.local",   # FTP server ip
+    "username":"raspinas",        # FTP user name
+    "password":"",                # FTP user password. Has priority on passwordFile if given
+    "password_file":"password",   # File containing the FTP user password. The password field has priority if given
+    "logs_file":"client.log",     # Logs file
+    "local_dir":"LocalDir",       # Local location or the synchronised directory
 }
 
 # Tools ------------------------------------------------------------------------
@@ -48,14 +46,20 @@ def read_config(file):
 
 def main(configFile):
     global config
-    
+
     # Reads and apply the config file
     read_config(configFile)
-    logfile.start(config['log_file'])
+    logfile.start(config['logs_file'])
 
     # Connects to the server
-    server.configure(config)
-    server.connect()
+    host = config['host']
+    username = config['username']
+    password = config['password']
+    if not password:
+        file = open(config['password_file'], "r")
+        password = file.read()
+        file.close()
+    server.connect(host, username, password)
 
     # Gets the list of files on the server folder and in the local folder
     localfiles = localdir.get_all_files(config['local_dir'])
