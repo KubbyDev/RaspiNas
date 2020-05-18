@@ -59,9 +59,15 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void run() {
                 while (true) {
-                    // TODO: Find a way to put it fullscreen
-                    String res = runCommand("tail -n 100 " + logsFile);
-                    mainTextView.setText(res);
+
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            String res = runCommand("tail -n 100 " + logsFile);
+                            mainTextView.setText(res);
+                        }
+                    });
+
                     try { Thread.sleep(100); } catch (InterruptedException e) { e.printStackTrace(); }
                 }
             }
@@ -96,9 +102,8 @@ public class MainActivity extends AppCompatActivity {
                     // If it is given, wait for the synchronisation to finish and updates the gallery
                     waitForSync();
                     updateGallery();
-                    // Closes the app
-                    finish();
-                    System.exit(0);
+
+                    closeApp();
                 }
             }
         }.start();
@@ -114,16 +119,23 @@ public class MainActivity extends AppCompatActivity {
             waitForSync();
             updateGallery();
         }
+        else
+            waitForSync();
 
         // Closes the app
-        finish();
-        System.exit(0);
+        closeApp();
     }
 
     // BLOCKING: waits for the synchronisation to finish
     private void waitForSync() {
         while(!syncDone)
             try { Thread.sleep(500); } catch (InterruptedException e) { e.printStackTrace(); }
+    }
+
+    private void closeApp() {
+        try { Thread.sleep(2000); } catch (InterruptedException e) { e.printStackTrace(); }
+        finish();
+        System.exit(0);
     }
 
     // Synchronises the local folder with the server (calls the python client)
@@ -135,7 +147,13 @@ public class MainActivity extends AppCompatActivity {
 
         // Launches the python client with that directory as local directory
         PyObject script = Python.getInstance().getModule("main");
-        script.callAttr("launch", localDir, logsFile);
+        try {
+            script.callAttr("launch", localDir, logsFile);
+        } catch(Exception e) {
+            try { Thread.sleep(2000); } catch (InterruptedException ex) { ex.printStackTrace(); }
+            e.printStackTrace();
+            closeApp();
+        }
     }
 
     // Copies the files in the local folder to the gallery
@@ -181,7 +199,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     // https://stackoverflow.com/questions/23608005/execute-shell-commands-and-get-output-in-a-textview
-    public String runCommand(String cmd)
+    private String runCommand(String cmd)
     {
         String o = "";
         try {

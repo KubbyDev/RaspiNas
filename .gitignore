@@ -2,6 +2,7 @@ PythonClient/password
 PythonClient/client.log
 PythonClient/client_linux.conf
 PythonClient/client.conf
+PythonClient/run.bat
 AndroidWrapper/app/src/main/python/password
 AndroidWrapper/app/src/main/python/*.py
 !AndroidWrapper/app/src/main/python/main.py
