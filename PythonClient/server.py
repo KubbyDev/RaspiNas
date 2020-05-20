@@ -88,17 +88,17 @@ def send_file(path, destName=None):
     global __serverIP
     if not destName: destName = __extract_name(path)
     # Establishes a data connection
-    dataSocket = datalink.connect(__serverIP)
+    link = DataLink(__serverIP)
     # Asks for a file upload
     send_request("STOR " + destName)
     # Sends the file data
     datafile = open(path, "rb")
     filedata = datafile.read()
     log("Sending data from " + path + "...")
-    dataSocket.send(filedata)
+    link.send_data(filedata)
     datafile.close()
     # Closes the data connection
-    datalink.close(dataSocket)
+    link.close()
 
 # Downloads the file with given name to given path
 def fetch_file(name, destPath=None):

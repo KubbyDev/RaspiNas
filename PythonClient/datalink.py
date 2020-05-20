@@ -17,6 +17,22 @@ def _decode_pasv(resp):
     numbers = resp.split(',')
     return int(numbers[4])*256 + int(numbers[5])
 
+# Gets all the data that is still in the tcp buffer
+def _receive_rest(socket):
+    global _dataBufferSize
+    to = socket.gettimeout()
+    socket.settimeout(0)
+    success = True
+    received = b''
+    while success:
+        try:
+            r = socket.recv(_dataBufferSize)
+            received += r
+            if len(r) == 0: success = False
+        except: success = False
+    socket.settimeout(to)
+    return received
+
 # Public functions -------------------------------------------------------------
 
 class DataLink:
@@ -54,5 +70,10 @@ class DataLink:
         # Starts receiving
         while not self.transfer_complete:
             received += self.socket.recv(_dataBufferSize)
+        received += _receive_rest(self.socket)
         log("Received " + str(len(received)) + " bytes")
         return received
+
+    # Sends data by the DataLink
+    def send_data(self, bytes):
+        self.socket.send(bytes)
