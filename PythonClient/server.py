@@ -3,7 +3,7 @@ import time
 import os
 import commandlink
 from commandlink import send_request
-import datalink
+from datalink import DataLink
 from logfile import log
 
 # Config -----------------------------------------------------------------------
@@ -37,7 +37,7 @@ def __format_files_list(list):
     return res
 
 # Goes to the given directory
-def __change_directory(dir): send_request("CWD " + dir, "250")
+def __change_directory(dir): send_request("CWD " + dir, startsWith="250")
 
 # Code -------------------------------------------------------------------------
 
@@ -75,7 +75,6 @@ def connect(hostname, user, password):
     __serverIP = ip
     # Opens the command link and sets the data link up
     commandlink.open(ip)
-    datalink.set_server_ip(ip)
     # Sends the authentication messages
     send_request("AUTH SSL", startsWith="530")
     send_request("USER " + user, startsWith="331")
@@ -102,39 +101,37 @@ def send_file(path, destName=None):
     datalink.close(dataSocket)
 
 # Downloads the file with given name to given path
-# Will retry if the download fails.
-# If the download fails too many time (maxTries), returns False
 def fetch_file(name, destPath=None):
     global __serverIP
     if not destPath: destPath = name
     # Establishes a data connection
-    dataSocket = datalink.connect(__serverIP)
+    link = DataLink(__serverIP)
     # Asks for a file download
     send_request("RETR " + name, startsWith="150")
-    # Downloads the file
     log("Receiving data from " + name + "...")
-    filedata = datalink.receive_data(dataSocket)
+    # Receives the file
+    filedata = link.receive_data()
     datafile = open(destPath, "wb+")
     datafile.write(filedata)
     datafile.close()
     # Closes the data connection
-    datalink.close(dataSocket)
+    link.close()
 
 # Returns a list of all the files in the current working directory
 # The list elements are tuples (name, size_bytes)
 def list_files():
     global __serverIP
     # Establishes a data connection
-    dataSocket = datalink.connect(__serverIP)
+    link = DataLink(__serverIP)
     # Asks for the files list
     send_request("LIST", startsWith="150")
     log("Receiving list of files...")
     # Receives the list
-    rawData = receive_data(dataSocket).decode("ascii")
+    rawData = link.receive_data().decode("ascii")
     files = __format_files_list(rawData)
     log("Found " + str(len(files)) + " files")
     # Closes the data connection
-    datalink.close(dataSocket)
+    link.close()
     return files
 
 # Moves the target file to the backup folder

@@ -80,8 +80,7 @@ def main(configFile):
         if not file in localfiles:
             log("Downloading " + file[0] + "...")
             print("Downloading " + file[0] + "...")
-            if not server.fetch_file(file[0], join(config['local_dir'], file[0])):
-                print("Download failed: max retries reached")
+            server.fetch_file(file[0], join(config['local_dir'], file[0]))
 
     # Uploads everyfile that is in the local folder but not on the server
     for file in localfiles:

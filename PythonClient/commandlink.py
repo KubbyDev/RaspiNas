@@ -23,7 +23,7 @@ __socket = None              # The socket used for the tcp connection
 def __line_received(line):
     global __callbacks
     global __cblock
-    log(received, "<< ")
+    log(line, "<< ")
     # Locks the list of callbacks during the processing
     __cblock.acquire()
     # Goes through the filters and triggers the actions for the filters that match
@@ -100,14 +100,15 @@ def add_callback(action=None, filter=None):
 def send_request(request, filter=None, startsWith=None):
     global __socket
     global __request_timeout
+    # Sets a callback to know when the response has arrived*
     response = None
-    __socket.send(bytes(request, "ascii") + b"\r\n")
-    # Sets a callback to know when the response has arrived
     def action(line):
         nonlocal response
         response = line
-    if startsWith: filter = lambda line : line.starts_with(startsWith)
+    if startsWith: filter = lambda line : line.startswith(startsWith)
     add_callback(action, filter)
+    # Sends the request
+    __socket.send(bytes(request, "ascii") + b"\r\n")
     log(request, ">> ")
     # Blocks while the response is not received
     start = time.time()
