@@ -114,6 +114,7 @@ def send_request(request, filter=None, startsWith=None):
     start = time.time()
     while response is None:
         if time.time() - start > __request_timeout:
+            log("Didn't receive response for request: " + request, "E: ")
             raise Exception("Didn't receive response for request: " + request)
         time.sleep(0.005)
     # Returns the response

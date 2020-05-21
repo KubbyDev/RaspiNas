@@ -5,7 +5,7 @@ from logfile import log
 
 # Config -----------------------------------------------------------------------
 
-_dataBufferSize = 1024      # Length of the data TCP buffer
+_dataBufferSize = 4096      # Length of the data TCP buffer
 _connection_timeout = 10    # Maximum time to connect the socket
 _transmission_timeout = 2   # Timeout of the data transfert
 
