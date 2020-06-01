@@ -2,7 +2,7 @@ import server
 import localdir
 import logfile
 from logfile import log
-from os.path import join, isfile
+from os.path import join, isfile, realpath, commonprefix
 
 # This script synchronises the local directory and the server
 # Execute it with no argument and it will use the client.conf config file
@@ -42,6 +42,12 @@ def read_config(file):
         config[line[:index]] = line[index+1:]
     f.close()
 
+# This function ensures that the file is in the local directory
+# (to protect against directory traversal attacks. Ex: naming a file C:\test)
+def is_in_local_dir(file):
+    global config
+    return commonprefix((realpath(file),config['local_dir'])) == config['local_dir']
+
 # Code -------------------------------------------------------------------------
 
 def main(configFile):
@@ -80,8 +86,15 @@ def main(configFile):
         if not file in localfiles:
             log("Downloading " + file[0] + "...")
             print("Downloading " + file[0] + "...")
-            server.fetch_file(file[0], join(config['local_dir'], file[0]))
-
+            filepath = join(config['local_dir'], file[0])
+            if is_in_local_dir(filepath):
+                server.fetch_file(file[0], filepath)
+            # Protection against directory traversal
+            else:
+                log("Detected directory traversal attempt, aborting", "W: ")
+                raise Exception("Detected directory traversal attempt\n" \
+                                + filepath + " is not in the local directory")
+ 
     # Uploads everyfile that is in the local folder but not on the server
     for file in localfiles:
         if not file in serverfiles:
